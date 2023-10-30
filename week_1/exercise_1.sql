@@ -1,3 +1,15 @@
+-- I made heavy use of CTEs to keep from confusing myself.  I tried to limit transformations so that each CTE only
+-- contained one step's transformations.  I knew I wanted to compare geolocation of customer and supplier, 
+-- so I made to two tables with the geolocation of customer and supplier using the unique cities.  
+
+-- Approach
+-- 1: get unique cities
+-- 2: add geolocation to suppliers using unique cities
+-- 3: add geolocation to customers using unique cities
+-- 4: get distance between customer and each supplier (with cross join)
+-- 5: rank distances for each customer to all suppliers
+-- 6: return the closest result ordered by first/last name
+
 with unique_cities
     as (select distinct
             uc.city_name,
