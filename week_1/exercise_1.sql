@@ -28,7 +28,8 @@ with unique_cities
                 uc.geo_location as supplier_geolocation
             from vk_data.resources.us_cities as uc
             join vk_data.suppliers.supplier_info as si
-                on lower(uc.city_name) = lower(si.supplier_city) and lower(uc.state_abbr) = lower(si.supplier_state)
+                on lower(uc.city_name) = lower(si.supplier_city) 
+                and lower(uc.state_abbr) = lower(si.supplier_state)
         ),
         
     customer_locations
@@ -51,7 +52,7 @@ with unique_cities
                 *,
                 round(st_distance(sl.supplier_geolocation, cl.customer_geolocation) / 1609, 2) as distance_in_miles
             from supplier_locations as sl
-            join customer_locations as cl        
+            join customer_locations as cl -- does using a join without the on key indicate a cross product?
         ),
         
     nearest_suppliers_ranked
