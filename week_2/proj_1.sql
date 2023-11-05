@@ -8,19 +8,29 @@ with
     from vk_data.customers.customer_address as ca
     join vk_data.customers.customer_data c 
         on ca.customer_id = c.customer_id
+    ),
+    
+    customer_locations as (
+        select 
+            c.customer_id,
+            c.customer_name,
+            c.customer_city,
+            c.customer_state,
+            us.geo_location
+        from customer_name_and_address as c
+        left join vk_data.resources.us_cities as us 
+            on UPPER(rtrim(ltrim(c.customer_state))) = upper(TRIM(us.state_abbr))
+            and trim(lower(c.customer_city)) = trim(lower(us.city_name)) 
     )
-
+    
 select 
     c.customer_name,
     c.customer_city,
     c.customer_state,
     s.food_pref_count,
-    (st_distance(us.geo_location, chic.geo_location) / 1609)::int as chicago_distance_miles,
-    (st_distance(us.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
-from customer_name_and_address as c
-left join vk_data.resources.us_cities us 
-on UPPER(rtrim(ltrim(c.customer_state))) = upper(TRIM(us.state_abbr))
-    and trim(lower(c.customer_city)) = trim(lower(us.city_name))
+    (st_distance(c.geo_location, chic.geo_location) / 1609)::int as chicago_distance_miles,
+    (st_distance(c.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
+from customer_locations as c
 join (
     select 
         customer_id,
@@ -40,9 +50,17 @@ cross join
     from vk_data.resources.us_cities 
     where city_name = 'GARY' and state_abbr = 'IN') gary
 where 
-    ((trim(city_name) ilike '%concord%' or trim(city_name) ilike '%georgetown%' or trim(city_name) ilike '%ashland%')
-    and customer_state = 'KY')
-    or
-    (customer_state = 'CA' and (trim(city_name) ilike '%oakland%' or trim(city_name) ilike '%pleasant hill%'))
-    or
-    (customer_state = 'TX' and ((trim(city_name) ilike '%arlington%') or trim(city_name) ilike '%brownsville%'))
+    (  
+        (( c.customer_state = 'KY') and (trim(c.customer_city) ilike '%concord%' 
+                                    or trim(c.customer_city) ilike '%georgetown%' 
+                                    or trim(c.customer_city) ilike '%ashland%' )
+        )  
+        or
+        ( (c.customer_state = 'CA') and (trim(c.customer_city) ilike '%oakland%' 
+                                        or trim(c.customer_city) ilike '%pleasant hill%' )
+        )
+        or
+        ( (c.customer_state = 'TX') and (trim(c.customer_city) ilike '%arlington%'
+                                    or trim(c.customer_city) ilike '%brownsville%') 
+        )
+    )
