@@ -26,6 +26,22 @@ with
         limit 1
     )
 
+    , affected_locations (id, city, state) as (
+        /*  Creates CTE from hard coded data to more realistically replicate
+            a real world scenario
+        */
+        select
+            *
+        from values
+                (1, 'concord',        'ky')
+                ,(2, 'georgetown',    'ky')
+                ,(3, 'ashland',       'ky')
+                ,(4, 'oakland',       'ca')
+                ,(5, 'pleasant hill', 'ca')
+                ,(6, 'arlington',    'tx')
+                ,(7, 'brownsville',   'tx')
+    )
+
     , customers_affected as (
         /*  consolidates customer data and filters out unaffected customers
         */
@@ -37,16 +53,12 @@ with
         from vk_data.customers.customer_address as ca
         inner join vk_data.customers.customer_data on
             ca.customer_id = customer_data.customer_id
-        where ((ca.customer_state = 'KY') and (ca.customer_city ilike '%concord%' 
-                                                or ca.customer_city ilike '%georgetown%'
-                                                or ca.customer_city ilike '%ashland%'))
-            or ((ca.customer_state = 'CA') and (ca.customer_city ilike '%oakland%'
-                                                or ca.customer_city ilike '%pleasant hill%'))
-            or ((ca.customer_state = 'TX') and (ca.customer_city ilike '%arlington%'
-                                                or ca.customer_city ilike '%brownsville%'))
+        inner join affected_locations on
+            lower(trim(ca.customer_city)) = affected_locations.city 
+            and lower(trim(ca.customer_state)) = affected_locations.state
     )
 
-    , customers_affected_with_locations as (
+    , customers_affected_with_geolocations as (
         /* Adds to affected customers the the geo location of each customer */
         select
             customers_affected.*
@@ -57,15 +69,15 @@ with
             and upper(trim(customers_affected.customer_city)) = upper(trim(us.city_name)) 
     )
     
-    , customers_affected_with_locations_and_distances as (
+    , customers_affected_with_geolocations_and_distances as (
         /*  Adds to accumulating customers table a column with calculated 
             distance between the customer and supply city
         */
         select
-            customers_awl.*
-            , (st_distance(customers_awl.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles
-            , (st_distance(customers_awl.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
-        from customers_affected_with_locations as customers_awl
+            customers_awg.*
+            , (st_distance(customers_awg.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles
+            , (st_distance(customers_awg.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
+        from customers_affected_with_geolocations as customers_awg
         cross join chicago_geolocation as chicago
         cross join gary_geolocation as gary
     )
@@ -87,5 +99,5 @@ select
     , customer_preferences.food_pref_count
     , customers_affected.chicago_distance_miles
     , customers_affected.gary_distance_miles
-from customers_affected_with_locations_and_distances as customers_affected
+from customers_affected_with_geolocations_and_distances as customers_affected
 inner join customer_preferences on customers_affected.id = customer_preferences.customer_id
