@@ -4,9 +4,9 @@
     https://github.com/brooklyn-data/co/blob/main/sql_style_guide.md
 
     My approach in refactoring was to break each transformation or set of related
-    transformations in to a CTE. (In Brooklyn Data Co they refer to this as a 
-    logical unit of work.) In the final select, I join the customer geo/distance
-    data with customer survey results.
+    transformations in to a CTE. I eventually clump the data into a CTE with the 
+    affected customers with geolocation/distances, then another CTE with survey 
+    results.  In the final select, I join these two sources.
 */
 
 with     
@@ -27,7 +27,7 @@ with
     )
 
     , customer_preferences as (
-        /*  Creates a table of the number of active survey results for each customer */ 
+        /*  Creates table of number of active survey results for each customer */ 
         select
             customer_survey.customer_id
             , count(*) as food_pref_count
@@ -37,9 +37,7 @@ with
     )
 
     , affected_locations (id, city, state) as (
-        /*  Creates CTE from hard coded data to more realistically replicate
-            a real world scenario
-        */
+        /*  Creates CTE to more realistically replicate real world scenario */
         select
             *
         from values
@@ -53,8 +51,7 @@ with
     )
 
     , customers_affected as (
-        /*  consolidates customer data and filters out unaffected customers
-        */
+        /* Filters customers by affected locations */
         select
             customer_data.customer_id as id
             , customer_data.first_name || ' ' || customer_data.last_name as customer_name
@@ -69,7 +66,7 @@ with
     )
 
     , customers_affected_with_geolocations as (
-        /* Adds to affected customers the the geo location of each customer */
+        /* Adds geolocation to affected customers */
         select
             customers_affected.*
             , us.geo_location
@@ -80,9 +77,7 @@ with
     )
     
     , customers_affected_with_geolocations_and_distances as (
-        /*  Adds to accumulating customers table a column with calculated 
-            distance between the customer and supply city
-        */
+        /* Adds distances between customer and cities to affected customers */
         select
             customers_awg.*
             , (st_distance(customers_awg.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles
