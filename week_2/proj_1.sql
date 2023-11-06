@@ -13,32 +13,32 @@ with
     customers as (
         /*  Consolidates pre-query customer data */
         select
-            cd.customer_id as id
-            , cd.first_name || ' ' || cd.last_name as customer_name
-            , ca.customer_city
-            , ca.customer_state
-        from vk_data.customers.customer_address as ca
-        inner join vk_data.customers.customer_data cd on 
-            ca.customer_id = cd.customer_id
+            customer_data.customer_id as id
+            , customer_data.first_name || ' ' || customer_data.last_name as customer_name
+            , customer_address.customer_city
+            , customer_address.customer_state
+        from vk_data.customers.customer_address
+        inner join vk_data.customers.customer_data on 
+            customer_address.customer_id = customer_data.customer_id
     )
 
     , customers_affected as (
         /*  Filters out unaffected customers */
-        select c.*
-        from customers as c
+        select *
+        from customers
         where 
             (  
-                (( c.customer_state = 'KY') and (c.customer_city ilike '%concord%' 
-                                            or c.customer_city ilike '%georgetown%' 
-                                            or c.customer_city ilike '%ashland%' )
+                (( customer_state = 'KY') and (customer_city ilike '%concord%' 
+                                            or customer_city ilike '%georgetown%' 
+                                            or customer_city ilike '%ashland%' )
                 )  
                 or
-                ( (c.customer_state = 'CA') and (c.customer_city ilike '%oakland%' 
-                                                or c.customer_city ilike '%pleasant hill%' )
+                ( (customer_state = 'CA') and (customer_city ilike '%oakland%' 
+                                                or customer_city ilike '%pleasant hill%' )
                 )
                 or
-                ( (c.customer_state = 'TX') and (c.customer_city ilike '%arlington%'
-                                            or c.customer_city ilike '%brownsville%')
+                ( (customer_state = 'TX') and (customer_city ilike '%arlington%'
+                                            or customer_city ilike '%brownsville%')
                 )
             )
     )
@@ -72,13 +72,13 @@ with
     
     , customers_affected_with_locations_and_distances as (
         /*  Adds to accumulating customers table a column with calculated 
-            distance between the customer and supply city 
+            distance between the customer and supply city
         */
         select
-            c.*
-            , (st_distance(c.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles
-            , (st_distance(c.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
-        from customers_affected_with_locations as c
+            cal.*
+            , (st_distance(cal.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles
+            , (st_distance(cal.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
+        from customers_affected_with_locations as cal
         cross join chicago_geolocation as chicago
         cross join gary_geolocation as gary
     )
@@ -86,9 +86,9 @@ with
     , customer_preferences as (
         /*  Creates a table of the number of active survey results for each customer */ 
         select
-            cs.customer_id
+            customer_survey.customer_id
             , count(*) as food_pref_count
-        from vk_data.customers.customer_survey as cs
+        from vk_data.customers.customer_survey
         where is_active = true
         group by 1
     )
