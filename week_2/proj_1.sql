@@ -26,6 +26,16 @@ with
         limit 1
     )
 
+    , customer_preferences as (
+        /*  Creates a table of the number of active survey results for each customer */ 
+        select
+            customer_survey.customer_id
+            , count(*) as food_pref_count
+        from vk_data.customers.customer_survey
+        where is_active = true
+        group by 1
+    )
+
     , affected_locations (id, city, state) as (
         /*  Creates CTE from hard coded data to more realistically replicate
             a real world scenario
@@ -81,17 +91,7 @@ with
         cross join chicago_geolocation as chicago
         cross join gary_geolocation as gary
     )
-    
-    , customer_preferences as (
-        /*  Creates a table of the number of active survey results for each customer */ 
-        select
-            customer_survey.customer_id
-            , count(*) as food_pref_count
-        from vk_data.customers.customer_survey
-        where is_active = true
-        group by 1
-    )
-    
+
 select
     customers_affected.customer_name
     , customers_affected.customer_city
