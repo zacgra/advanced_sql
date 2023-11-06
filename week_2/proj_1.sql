@@ -1,4 +1,5 @@
 with 
+    --  consolidate pre-query customer data
     customer_name_and_address as (
         select
             c.customer_id,
@@ -10,20 +11,13 @@ with
         on ca.customer_id = c.customer_id
     ),
     
-    customer_locations as (
-        select 
-            c.*,
-            us.geo_location
-        from customer_name_and_address as c
-        left join vk_data.resources.us_cities as us 
-            on UPPER(rtrim(ltrim(c.customer_state))) = upper(TRIM(us.state_abbr))
-            and trim(lower(c.customer_city)) = trim(lower(us.city_name)) 
-    ),
-
+    -- Filter out unaffected customers
+    -- Also, pass the prior related CTEs records along for accumulating results
+    --  so that we don't recalculate CTEs multiple times.
     affected_customers as (
         select
             c.*
-        from customer_locations as c
+        from customer_name_and_address as c
         where 
             (  
                 (( c.customer_state = 'KY') and (trim(c.customer_city) ilike '%concord%' 
@@ -40,31 +34,51 @@ with
                 )
             )
     ),
+    
+    -- join customer data to us cities to get a geo_location for each customer
+    affected_customer_locations as (
+        select 
+            c.*,
+            us.geo_location
+        from affected_customers as c
+        left join vk_data.resources.us_cities as us 
+            on upper(trim(c.customer_state)) = upper(trim(us.state_abbr))
+            and upper(trim(c.customer_city)) = upper(trim(us.city_name)) 
+    ),
 
+    -- create a single row table to retrieve Chicago geo_location
     chicago_geolocation as (
         select
             geo_location
         from vk_data.resources.us_cities 
         where city_name = 'CHICAGO' and state_abbr = 'IL'
+        limit 1
     ),
 
+    -- create a single row table to retrieve Gary geo_location
     gary_geolocation as (
         select
             geo_location
         from vk_data.resources.us_cities 
         where city_name = 'GARY' and state_abbr = 'IN'
+        limit 1
     ),
 
+    -- calculate the distance between the customer and city
+    -- each cross join won't create additional columns since there is only one
+    -- result in each city-specific table
     affected_customers_with_suppy_store_distance as (
         select
-            customer.*,
-            (st_distance(customer.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles,
-            (st_distance(customer.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
-        from affected_customers as customer
+            c.*,
+            (st_distance(c.geo_location, chicago.geo_location) / 1609)::int as chicago_distance_miles,
+            (st_distance(c.geo_location, gary.geo_location) / 1609)::int as gary_distance_miles
+        from affected_customer_locations as c
         cross join chicago_geolocation as chicago
         cross join gary_geolocation as gary
     ),
 
+    -- customer preferences can be joined last so we aren't passing non-essential
+    --  data around
     customer_preferences as (
         select 
             cs.customer_id,
