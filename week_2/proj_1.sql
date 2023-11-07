@@ -36,18 +36,18 @@ with
         group by 1
     )
 
-    , affected_locations (id, city, state) as (
+    , affected_locations (city, state) as (
         /*  Creates CTE to more realistically replicate real world scenario */
         select
             *
         from values
-                (1, 'concord',        'ky')
-                ,(2, 'georgetown',    'ky')
-                ,(3, 'ashland',       'ky')
-                ,(4, 'oakland',       'ca')
-                ,(5, 'pleasant hill', 'ca')
-                ,(6, 'arlington',    'tx')
-                ,(7, 'brownsville',   'tx')
+                ('concord',        'ky')
+                ,('georgetown',    'ky')
+                ,('ashland',       'ky')
+                ,('oakland',       'ca')
+                ,('pleasant hill', 'ca')
+                ,('arlington',    'tx')
+                ,('brownsville',   'tx')
     )
 
     , customers_affected as (
